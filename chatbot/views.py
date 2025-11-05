@@ -77,7 +77,8 @@ def ask(request: HttpRequest):
     if not q:
         return JsonResponse({"ok": False, "answer": "Please type a question."}, status=400)
     try:
-        out = rag_ask(q, k=5)
+        # Use k=8 for better context coverage and expert-level responses
+        out = rag_ask(q, k=8)
         ChatLog.objects.create(question=q, answer=out["answer"], sources=out["sources"])
         return JsonResponse({"ok": True, "answer": out["answer"], "sources": out["sources"]})
     except Exception as e:
