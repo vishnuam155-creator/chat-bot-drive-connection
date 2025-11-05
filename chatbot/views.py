@@ -34,7 +34,17 @@ def upload(request: HttpRequest):
     try:
         text, ftype = extract_text(path)
         doc.file_type = ftype
+
+        # Validate extracted text is not empty
+        if not text or len(text.strip()) < 10:
+            raise ValueError(f"Document '{doc.name}' contains no readable text or is too short (extracted {len(text)} chars)")
+
         chunks = chunk_text(text)
+
+        # Validate chunks were created
+        if not chunks:
+            raise ValueError(f"Failed to create chunks from document '{doc.name}'. Text length: {len(text)}")
+
         meta = {"doc_id": str(doc.id), "doc_name": doc.name}
         upsert_chunks(doc_id=meta["doc_id"], chunks=chunks, metadoc=meta)
         doc.num_chunks = len(chunks)

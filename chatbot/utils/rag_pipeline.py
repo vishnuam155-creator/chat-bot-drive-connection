@@ -21,8 +21,19 @@ def _format_context(docs: List[str], metas: List[Dict[str, Any]]) -> str:
 
 def ask(question: str, k: int = 5) -> Dict[str, Any]:
     result = vs_query(question, k=k)
-    docs = result["documents"][0] if result["documents"] else []
-    metas = result["metadatas"][0] if result["metadatas"] else []
+
+    # Handle empty vectorstore or no results
+    docs = result.get("documents", [[]])[0] if result.get("documents") else []
+    metas = result.get("metadatas", [[]])[0] if result.get("metadatas") else []
+    distances = result.get("distances", [[]])[0] if result.get("distances") else []
+
+    # If no documents found in vectorstore
+    if not docs:
+        return {
+            "answer": "I don't have any documents uploaded yet. Please upload documents first before asking questions.",
+            "sources": []
+        }
+
     context = _format_context(docs, metas)
 
     prompt = (
@@ -35,16 +46,41 @@ def ask(question: str, k: int = 5) -> Dict[str, Any]:
 
     client = _gemini_client()
     model = "gemini-2.5-flash"
-    resp = client.models.generate_content(model=model, contents=prompt)
-    answer_text = getattr(resp, "text", None) or getattr(resp, "candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "")  # type: ignore
+
+    try:
+        resp = client.models.generate_content(model=model, contents=prompt)
+        # Safely extract answer text
+        answer_text = ""
+        if hasattr(resp, "text") and resp.text:
+            answer_text = resp.text
+        elif hasattr(resp, "candidates") and resp.candidates:
+            candidate = resp.candidates[0]
+            if hasattr(candidate, "content") and hasattr(candidate.content, "parts"):
+                for part in candidate.content.parts:
+                    if hasattr(part, "text"):
+                        answer_text += part.text
+
+        if not answer_text:
+            answer_text = "I apologize, but I couldn't generate a response. Please try again."
+
+    except Exception as e:
+        answer_text = f"Error generating response: {str(e)}"
 
     sources = []
     for i, (d, m) in enumerate(zip(docs, metas)):
+        # Safely access distance with bounds checking
+        score = None
+        if distances and i < len(distances):
+            try:
+                score = float(distances[i])
+            except (ValueError, TypeError):
+                score = None
+
         sources.append({
             "index": i+1,
             "doc_name": m.get("doc_name", "unknown"),
             "snippet": d[:160].replace("\n", " ") + ("..." if len(d) > 160 else ""),
-            "score": float(result["distances"][0][i]) if result.get("distances") else None,
+            "score": score,
         })
 
     return {"answer": answer_text.strip(), "sources": sources}
