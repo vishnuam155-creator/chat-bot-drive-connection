@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="card chat-section">
+  <h2 class="title">Ask Your Documents</h2>
+
+  <!-- File Upload -->
+  <div class="uploader">
+    <input id="fileInput" type="file" multiple accept=".pdf,.docx,.txt,.png,.jpg,.jpeg,.webp"/>
+    <button id="uploadBtn">Upload</button>
+    <small>Supports PDF, DOCX, TXT, PNG, JPG (with OCR)</small>
+  </div>
+
+  <!-- Chat Area -->
+  <div class="chatbox" id="chatBox">
+    <!-- Example Messages -->
+    <!-- These are just placeholders; JS will append real ones -->
+    <!--
+    <div class="msg user">
+      <div class="avatar user">U</div>
+      <div class="bubble">Hello, can you summarize my uploaded report?</div>
+    </div>
+    <div class="msg ai">
+      <div class="avatar ai">D</div>
+      <div class="bubble">Sure! Let me read your document first.</div>
+    </div>
+    -->
+  </div>
+
+  <!-- Question Input -->
+  <div class="askbar">
+    <input id="question" type="text" placeholder="Ask anything from your documents..." />
+    <button id="askBtn">Ask</button>
+  </div>
+</section>
+
+<script src="/static/chat.js"></script>
+{% endblock %}
