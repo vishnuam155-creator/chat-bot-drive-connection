@@ -34,7 +34,17 @@ def upload(request: HttpRequest):
     try:
         text, ftype = extract_text(path)
         doc.file_type = ftype
+
+        # Validate extracted text is not empty
+        if not text or len(text.strip()) < 10:
+            raise ValueError(f"Document '{doc.name}' contains no readable text or is too short (extracted {len(text)} chars)")
+
         chunks = chunk_text(text)
+
+        # Validate chunks were created
+        if not chunks:
+            raise ValueError(f"Failed to create chunks from document '{doc.name}'. Text length: {len(text)}")
+
         meta = {"doc_id": str(doc.id), "doc_name": doc.name}
         upsert_chunks(doc_id=meta["doc_id"], chunks=chunks, metadoc=meta)
         doc.num_chunks = len(chunks)
@@ -67,7 +77,8 @@ def ask(request: HttpRequest):
     if not q:
         return JsonResponse({"ok": False, "answer": "Please type a question."}, status=400)
     try:
-        out = rag_ask(q, k=5)
+        # Use k=8 for better context coverage and expert-level responses
+        out = rag_ask(q, k=8)
         ChatLog.objects.create(question=q, answer=out["answer"], sources=out["sources"])
         return JsonResponse({"ok": True, "answer": out["answer"], "sources": out["sources"]})
     except Exception as e:

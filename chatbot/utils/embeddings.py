@@ -83,16 +83,54 @@ def _sbert_embed(texts: List[str]) -> List[List[float]]:
 
 # ---- Public entry ----
 def embed_texts(texts: List[str]) -> List[List[float]]:
+    """
+    Generate embeddings for a list of texts.
+
+    Args:
+        texts: List of text strings to embed
+
+    Returns:
+        List of embedding vectors (each vector is a list of floats)
+
+    Raises:
+        ValueError: If texts is empty or contains only empty strings
+        RuntimeError: If embedding generation fails
+    """
     if not texts:
         return []
+
+    # Filter out empty texts and log warning
+    non_empty_texts = [t.strip() for t in texts if t and t.strip()]
+    if not non_empty_texts:
+        raise ValueError("All texts are empty after stripping whitespace")
+
+    if len(non_empty_texts) != len(texts):
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.warning(
+            f"Filtered out {len(texts) - len(non_empty_texts)} empty texts from embedding batch"
+        )
+
     backend = get_backend()
     try:
         if backend == "google":
-            return _google_embed(texts)
-        return _sbert_embed(texts)
+            return _google_embed(non_empty_texts)
+        return _sbert_embed(non_empty_texts)
     except Exception as e:
-        # Safety net: if Google fails, gracefully fall back so uploads don’t 500.
-        # You can remove this if you want strict behavior.
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Embedding failed with {backend} backend: {e}")
+
+        # Safety net: if Google fails, gracefully fall back so uploads don't 500.
+        # Only try fallback if we were using Google
         if backend == "google":
-            return _sbert_embed(texts)
-        raise
+            logger.warning("Falling back to SBERT embeddings due to Google API failure")
+            try:
+                return _sbert_embed(non_empty_texts)
+            except Exception as fallback_error:
+                logger.error(f"Fallback to SBERT also failed: {fallback_error}")
+                raise RuntimeError(
+                    f"Both Google and SBERT embedding backends failed. "
+                    f"Google: {str(e)}, SBERT: {str(fallback_error)}"
+                )
+        raise RuntimeError(f"Embedding generation failed: {str(e)}")
